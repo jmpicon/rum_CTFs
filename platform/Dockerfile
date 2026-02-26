@@ -1,8 +1,8 @@
-FROM ctfd/ctfd:3.6.1
+FROM ctfd/ctfd:3.7.3
 
 USER root
 # Instalar ping y curl (útil en diagnóstico)
-RUN apt-get update && apt-get install -y curl iputils-ping
+RUN apt-get update && apt-get install -y curl iputils-ping git
 
 # Instalamos el plugin CTFd-Whale
 RUN cd /opt/CTFd/CTFd/plugins \
