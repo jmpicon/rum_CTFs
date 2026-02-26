@@ -1,0 +1,87 @@
+version: '3.7'
+
+services:
+  # Base de Datos CTFd
+  db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      - MARIADB_ROOT_PASSWORD=unContraseñaMuySegura
+      - MARIADB_USER=ctfd
+      - MARIADB_PASSWORD=ctfd_db_password
+      - MARIADB_DATABASE=ctfd
+    networks:
+      - ctf_internal
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+
+  # Caché
+  cache:
+    image: redis:6
+    restart: always
+    networks:
+      - ctf_internal
+    volumes:
+      - ./data/redis:/data
+
+  # Portal CTFd (Con soporte para el plugin Whale)
+  ctfd:
+    build: .
+    user: root # Ejecutar como root dentro del container para poder hablar con el daemon DOCKER
+    restart: always
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:ctfd_db_password@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=4
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+      - REVERSE_PROXY=true
+    volumes:
+      - ./data/CTFd/logs:/var/log/CTFd
+      - ./data/CTFd/uploads:/var/uploads
+      # Fundamental para crear labs dinámicos: damos acceso al socket de Docker (Swarm)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - ctf_internal
+      - proxy_net
+      # Whale necesita hablar con la red de challenge
+      - challenge_net
+    deploy:
+      labels:
+        # Etiquetas de Traefik para enrutar el tráfico externo al portal CTFd
+        - "traefik.enable=true"
+        - "traefik.http.routers.ctfd.rule=Host(`ctf.tu-instituto.edu`)"
+        - "traefik.http.routers.ctfd.entrypoints=websecure"
+        - "traefik.http.routers.ctfd.tls.certresolver=letsencrypt"
+        - "traefik.http.services.ctfd.loadbalancer.server.port=8000"
+
+  # Proxy inverso: maneja los lab subdominios y el portal SSL
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=profesor@tu-instituto.edu"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/traefik:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy_net
+      - challenge_net
+      
+networks:
+  proxy_net:
+    external: true
+  ctf_internal:
+    external: true
+  challenge_net:
+    external: true

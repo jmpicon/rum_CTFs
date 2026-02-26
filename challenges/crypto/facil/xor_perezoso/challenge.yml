@@ -1,0 +1,14 @@
+name: "XOR Perezoso"
+author: "Docente"
+category: Crypto
+description: |
+  Un reto educativo para aprender sobre la reversibilidad de XOR.
+  Revisa el código fuente y averigua cómo recuperar la flag.
+value: 50
+type: standard
+flags:
+  - CTF{xor_es_lineal_pero_ensena_algo}
+hints:
+  - { content: "XOR aplicado dos veces con la misma clave devuelve el texto original.", cost: 10 }
+state: visible
+version: "0.1"

@@ -1,0 +1,19 @@
+name: "Admin Roto"
+author: "Docente"
+category: Web
+description: |
+  Aplicación web con control de acceso basado en roles defectuoso.
+  Inicia tu instancia y consigue acceder como admin.
+value: 100
+type: dynamic_docker
+extra:
+  image: "ctf-web-admin"
+  memory_limit: "256m"
+  cpu_limit: "0.25"
+flags:
+  - type: static
+    content: CTF{broken_access_control_demo}
+hints:
+  - { content: "Revisa bien los parámetros que pasas en la URL.", cost: 10 }
+state: visible
+version: "0.1"

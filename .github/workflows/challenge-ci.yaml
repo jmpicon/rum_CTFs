@@ -1,0 +1,23 @@
+name: challenge-ci
+
+on:
+  pull_request:
+    paths:
+      - "challenges/**"
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build challenge images
+        run: |
+          for d in challenges/**/**/**/service; do
+            [ -f "$d/Dockerfile" ] && docker build -t "ctf-$(echo $d | tr '/' '-')" "$d" || true
+          done
+
+      - name: Run challenge tests
+        run: |
+          python -m pip install -r requirements-dev.txt
+          pytest -q challenges/
