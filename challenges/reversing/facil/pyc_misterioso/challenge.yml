@@ -1,0 +1,25 @@
+name: "PYC Misterioso"
+author: "Docente"
+category: Reversing
+description: |
+  Un desarrollador dejó un script de validación... pero borró el código fuente.
+  Solo queda un fichero compilado de Python: `misterioso.pyc`.
+
+  Tu misión es hacer ingeniería inversa del bytecode y recuperar la flag.
+
+  Pistas:
+  - Un `.pyc` contiene objetos de código serializados (módulo `marshal`)
+  - Puedes usar herramientas como `uncompyle6`, `dis` o scripts propios
+
+  **Fichero adjunto:** `misterioso.pyc`
+value: 120
+type: standard
+flags:
+  - CTF{el_bytecode_tambien_habla}
+hints:
+  - content: "Prueba: uncompyle6 misterioso.pyc"
+    cost: 20
+  - content: "También puedes abrir el .pyc con marshal y recorrer co_consts."
+    cost: 35
+state: visible
+version: "0.1"

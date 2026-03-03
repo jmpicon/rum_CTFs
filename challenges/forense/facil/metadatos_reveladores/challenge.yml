@@ -1,0 +1,31 @@
+name: "Metadatos Reveladores"
+author: "Docente"
+category: Forense
+description: |
+  Un periodista de investigación recibió esta foto de una fuente anónima.
+  La foto en sí parece inocente... pero las fotos digitales guardan un
+  secreto invisible: los **metadatos EXIF**.
+
+  Los metadatos EXIF almacenan información como:
+  - Fecha y hora de la foto
+  - Modelo de cámara / dispositivo
+  - **Coordenadas GPS** (¡sí, tu ubicación!)
+  - Y a veces... notas del fotógrafo
+
+  Descarga `foto_gato.jpg` y analiza sus metadatos.
+
+  **Herramientas:**
+  - `exiftool foto_gato.jpg` (Linux/Mac)
+  - Python: `from PIL import Image; img = Image.open("foto_gato.jpg"); print(img._getexif())`
+  - Online: [exif.regex.info](https://exif.regex.info/exif.cgi)
+value: 100
+type: standard
+flags:
+  - CTF{exif_revela_mas_de_lo_que_crees}
+hints:
+  - content: "Ejecuta: exiftool foto_gato.jpg | grep -i 'comment\\|artist\\|copyright\\|description'"
+    cost: 15
+  - content: "La flag está guardada en el campo 'Artist' de los metadatos EXIF."
+    cost: 25
+state: visible
+version: "0.1"

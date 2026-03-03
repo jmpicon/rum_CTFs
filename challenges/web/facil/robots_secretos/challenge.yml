@@ -1,0 +1,32 @@
+name: "Robots Secretos"
+author: "Docente"
+category: Web
+description: |
+  La empresa **SeguraCorp** acaba de estrenar su nueva web corporativa.
+  El administrador, muy orgulloso, dice que la sección de administración
+  está perfectamente **oculta**. *"Nadie la encontrará jamás,"* afirma.
+
+  Sin embargo, dejó un fichero que los buscadores web usan para saber
+  qué páginas NO indexar...
+
+  Inicia tu instancia, investiga y encuentra lo que esconde.
+
+  > 💡 Busca el fichero que todo crawler web solicita primero.
+value: 75
+type: dynamic_docker
+extra:
+  image: "ctf-web-robots"
+  memory_limit: "128m"
+  cpu_limit: "0.1"
+flags:
+  - type: static
+    content: CTF{robots_txt_no_es_seguridad}
+hints:
+  - content: "Todos los buscadores web leen un fichero especial en la raíz del servidor
+      antes de indexar. Se llama 'robots.txt'. Accede a él."
+    cost: 10
+  - content: "Una vez que encuentres la ruta oculta en robots.txt, visítala
+      directamente en tu navegador."
+    cost: 20
+state: visible
+version: "0.1"

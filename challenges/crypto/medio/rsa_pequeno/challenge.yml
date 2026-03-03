@@ -1,0 +1,36 @@
+name: "RSA: Primer Contacto"
+author: "Docente"
+category: Crypto
+description: |
+  Has interceptado un mensaje cifrado con **RSA**, el algoritmo asimétrico más
+  usado del mundo. Por suerte, el servidor era tan pequeño que usó **módulos
+  ridículamente pequeños** —factorizables en segundos—.
+
+  Se te proporcionan:
+  - La **clave pública** `pubkey.txt` → (n, e)
+  - El **ciphertext** `ciphertext.txt` → lista de valores cifrados, uno por byte
+
+  Para descifrar RSA necesitas:
+  1. **Factorizar** n = p × q (aquí n es pequeño, ¡es factorizable!)
+  2. Calcular **φ(n)** = (p-1)(q-1)
+  3. Calcular **d** = e⁻¹ mod φ(n)  ← inverso modular
+  4. Descifrar cada valor: **m** = c^d mod n
+  5. Convertir cada byte a ASCII → `chr(m)`
+
+  > **Lección:** Un RSA seguro usa módulos de 2048 bits mínimo.
+  > Con n < 100 millones, cualquier ordenador lo factoriza en microsegundos.
+
+  **Ficheros adjuntos:** `pubkey.txt`, `ciphertext.txt`
+value: 200
+type: standard
+flags:
+  - CTF{rsa_primer_contacto}
+hints:
+  - content: "Para factorizar n, prueba dividirlo por todos los números desde 2 hasta
+      √n. En Python: next(p for p in range(2, int(n**0.5)+2) if n%p==0)"
+    cost: 30
+  - content: "El inverso modular de e módulo φ(n) en Python:
+      pow(e, -1, phi_n)  ← funciona en Python 3.8+"
+    cost: 50
+state: visible
+version: "0.1"

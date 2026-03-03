@@ -1,0 +1,27 @@
+http:
+  routers:
+    ctfd-http:
+      rule: "Host(`ctf.tu-instituto.edu`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: ctfd-svc
+    ctfd-https:
+      rule: "Host(`ctf.tu-instituto.edu`)"
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: ctfd-svc
+
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+
+  services:
+    ctfd-svc:
+      loadBalancer:
+        servers:
+          - url: "http://tasks.ctfd:8000"

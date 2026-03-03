@@ -1,0 +1,34 @@
+name: "Vigenère Roto"
+author: "Docente"
+category: Crypto
+description: |
+  Durante siglos, el **cifrado de Vigenère** fue conocido como *"le chiffre
+  indéchiffrable"* (el cifrado indescifrable). En 1863, Friedrich Kasiski demostró
+  que era vulnerable al **análisis de frecuencias** cuando la clave se repite.
+
+  Has interceptado un documento cifrado con Vigenère. Tu misión:
+  1. Determinar la **longitud de la clave** (Kasiski o Índice de Coincidencia)
+  2. Dividir el ciphertext en subcadenas → cada una es un **César independiente**
+  3. Atacar cada subcadena por **frecuencia de letras** (en español, la más común es 'a' o 'e')
+  4. Reconstruir la clave y descifrar el mensaje completo
+
+  **Fichero adjunto:** `ciphertext.txt`
+
+  > El cifrado Vigenère opera **solo sobre letras**; espacios, puntos y comas
+  > no se cifran (se dejan tal cual).
+value: 350
+type: standard
+flags:
+  - CTF{vigenere_cae_ante_la_estadistica}
+hints:
+  - content: "La clave tiene exactamente 6 letras."
+    cost: 50
+  - content: "Divide el ciphertext (solo letras) en 6 grupos: posiciones 0,6,12,...
+      posiciones 1,7,13,... etc. Cada grupo es un César: la letra más frecuente en
+      español suele corresponder a 'a' o 'e'. Prueba ambas para cada posición."
+    cost: 80
+  - content: "La clave es una palabra española relacionada con la seguridad. Una vez
+      identificada, el descifrado es directo."
+    cost: 100
+state: visible
+version: "0.1"

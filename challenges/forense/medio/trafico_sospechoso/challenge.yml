@@ -1,0 +1,37 @@
+name: "Tráfico Sospechoso"
+author: "Docente"
+category: Forense
+description: |
+  El equipo de blue team ha capturado tráfico de red sospechoso dentro de
+  la empresa. Parece que alguien hizo login en un servidor usando un
+  protocolo **sin cifrado**.
+
+  Analiza el fichero de captura `captura.pcap` y encuentra las credenciales.
+  La contraseña del servidor es la flag.
+
+  **Herramientas:**
+  - **Wireshark** (GUI): Abre el .pcap y sigue el flujo TCP (clic derecho → Follow TCP Stream)
+  - **tshark** (terminal):
+    ```bash
+    tshark -r captura.pcap -Y "http" -V
+    tshark -r captura.pcap -Y "ftp" -V
+    ```
+  - **Python + scapy**:
+    ```python
+    from scapy.all import rdpcap
+    pkts = rdpcap("captura.pcap")
+    ```
+
+  > ⚠️ Nunca uses FTP, HTTP o Telnet para datos sensibles.
+  > Usa **SFTP**, **HTTPS** o **SSH** — protocolos cifrados.
+value: 250
+type: standard
+flags:
+  - CTF{sniffing_texto_plano_es_peligroso}
+hints:
+  - content: "Filtra por protocolo FTP en Wireshark. Busca los comandos USER y PASS."
+    cost: 30
+  - content: "En tshark: tshark -r captura.pcap -Y 'ftp' -T fields -e ftp.request.command -e ftp.request.arg"
+    cost: 60
+state: visible
+version: "0.1"

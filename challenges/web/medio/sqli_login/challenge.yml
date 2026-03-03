@@ -1,0 +1,38 @@
+name: "SQLi: El Login Roto"
+author: "Docente"
+category: Web
+description: |
+  **AdminPortal v1.0** es un sistema de login corporativo desarrollado "a toda prisa"
+  por un becario que nunca oyó hablar de consultas parametrizadas.
+
+  Tienes acceso a la página de login. Tu objetivo es **entrar como administrador**
+  sin conocer la contraseña.
+
+  El servidor ejecuta una consulta SQL parecida a:
+  ```sql
+  SELECT * FROM usuarios WHERE usuario='{input}' AND contrasena='{pass}'
+  ```
+
+  ¿Puedes manipular la consulta SQL para bypassear la autenticación?
+
+  > **OWASP Top 10 A03:2021 – Injection**
+  > La inyección SQL es una de las vulnerabilidades más antiguas y devastadoras.
+  > Una sola comilla puede comprometer una base de datos entera.
+value: 200
+type: dynamic_docker
+extra:
+  image: "ctf-web-sqli"
+  memory_limit: "128m"
+  cpu_limit: "0.1"
+flags:
+  - type: static
+    content: CTF{sqli_las_comillas_mandan}
+hints:
+  - content: "Prueba introducir una comilla simple ' en el campo usuario. Si la aplicación
+      da error o se comporta de forma extraña, es vulnerable a SQL injection."
+    cost: 20
+  - content: "El payload clásico de bypass: usuario = ' OR '1'='1 y contraseña = cualquier cosa.
+      También funciona: usuario = admin'-- (el doble guión comenta el resto de la query)"
+    cost: 50
+state: visible
+version: "0.1"

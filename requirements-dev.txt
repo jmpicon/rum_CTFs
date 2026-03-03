@@ -1,0 +1,5 @@
+pytest>=7.4
+requests>=2.31
+scapy>=2.5
+Pillow>=10.0
+uncompyle6>=3.9

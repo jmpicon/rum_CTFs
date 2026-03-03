@@ -1,0 +1,39 @@
+name: "La Cookie Mentirosa"
+author: "Docente"
+category: Web
+description: |
+  **TokenBank** usa un sistema de sesiones propio basado en tokens.
+  Al hacer login, el servidor te da un token de sesión codificado en
+  **Base64** que "protege" tu identidad.
+
+  Credenciales de prueba:
+  - Usuario: `alumno`
+  - Contraseña: `alumno123`
+
+  Tras iniciar sesión, verás tu panel de usuario. La sección de
+  `/admin` solo está disponible para el rol `admin`... *¿o sí?*
+
+  > ⚠️ El servidor confía ciegamente en lo que el cliente le manda.
+  > Inspecciona las cookies, decodifica y modifica.
+
+  > **Herramientas útiles:** DevTools del navegador (F12 → Application → Cookies),
+  > CyberChef, `base64` en terminal, Python.
+value: 150
+type: dynamic_docker
+extra:
+  image: "ctf-web-cookie"
+  memory_limit: "128m"
+  cpu_limit: "0.1"
+flags:
+  - type: static
+    content: CTF{nunca_confies_en_el_cliente}
+hints:
+  - content: "Abre las DevTools (F12), ve a Application → Cookies y busca la cookie
+      'session_token'. Su valor parece Base64 (termina en =). Decodifícala."
+    cost: 15
+  - content: "En Python: import base64, json → json.loads(base64.b64decode(cookie_value))
+      Verás un JSON con tu usuario y rol. Cambia 'rol' a 'admin', re-codifica en Base64
+      y envía la cookie modificada."
+    cost: 40
+state: visible
+version: "0.1"

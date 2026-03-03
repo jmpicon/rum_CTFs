@@ -1,0 +1,6 @@
+# Clave Pública RSA
+# Módulo n   = p × q  (¡factorízalo!)
+# Exponente e (público, estándar)
+
+n = 81072007
+e = 65537

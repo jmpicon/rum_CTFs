@@ -1,83 +1,139 @@
 version: '3.7'
 
+# ============================================================
+# CTFd Stack – Docker Swarm
+# Despliegue: docker stack deploy -c docker-compose.yml ctf
+#
+# ANTES de desplegar, construye la imagen de CTFd con:
+#   docker build -t ctfd-custom:latest ./platform/
+# Y la imagen de los retos web:
+#   bash install.sh
+# ============================================================
+
 services:
-  # Base de Datos CTFd
+
+  # ── Base de Datos ──────────────────────────────────────────
   db:
     image: mariadb:10.11
     restart: always
     environment:
-      - MARIADB_ROOT_PASSWORD=unContraseñaMuySegura
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-cambiame_root_2024}
       - MARIADB_USER=ctfd
-      - MARIADB_PASSWORD=ctfd_db_password
+      - MARIADB_PASSWORD=${DB_PASSWORD:-cambiame_ctfd_2024}
       - MARIADB_DATABASE=ctfd
     networks:
       - ctf_internal
     volumes:
-      - ./data/mariadb:/var/lib/mysql
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost",
+             "-u", "ctfd", "--password=${DB_PASSWORD:-cambiame_ctfd_2024}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-  # Caché
+  # ── Caché (Redis) ──────────────────────────────────────────
   cache:
-    image: redis:6
+    image: redis:7-alpine
     restart: always
     networks:
       - ctf_internal
     volumes:
-      - ./data/redis:/data
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
-  # Portal CTFd (Con soporte para el plugin Whale)
+  # ── Portal CTFd + Plugin Whale ─────────────────────────────
+  # La imagen se construye ANTES del deploy: docker build -t ctfd-custom:latest ./platform/
   ctfd:
-    build: .
-    user: root # Ejecutar como root dentro del container para poder hablar con el daemon DOCKER
+    image: ctfd-custom:latest
+    user: root   # necesario para acceder al socket Docker (Whale plugin)
     restart: always
     environment:
       - UPLOAD_FOLDER=/var/uploads
-      - DATABASE_URL=mysql+pymysql://ctfd:ctfd_db_password@db/ctfd
+      - DATABASE_URL=mysql+pymysql://ctfd:${DB_PASSWORD:-cambiame_ctfd_2024}@db/ctfd
       - REDIS_URL=redis://cache:6379
       - WORKERS=4
       - LOG_FOLDER=/var/log/CTFd
       - ACCESS_LOG=-
       - ERROR_LOG=-
       - REVERSE_PROXY=true
+      - SECRET_KEY=${CTF_SECRET_KEY:-cambia_esta_clave_secreta_ahora}
     volumes:
-      - ./data/CTFd/logs:/var/log/CTFd
-      - ./data/CTFd/uploads:/var/uploads
-      # Fundamental para crear labs dinámicos: damos acceso al socket de Docker (Swarm)
+      - ctfd_logs:/var/log/CTFd
+      - ctfd_uploads:/var/uploads
+      # Whale necesita hablar con el daemon Docker (Swarm)
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: host
     networks:
       - ctf_internal
       - proxy_net
-      # Whale necesita hablar con la red de challenge
       - challenge_net
+    depends_on:
+      - db
+      - cache
     deploy:
+      replicas: 1
       labels:
-        # Etiquetas de Traefik para enrutar el tráfico externo al portal CTFd
         - "traefik.enable=true"
-        - "traefik.http.routers.ctfd.rule=Host(`ctf.tu-instituto.edu`)"
+        - "traefik.http.routers.ctfd.rule=Host(`${CTF_DOMAIN:-ctf.tu-instituto.edu}`)"
         - "traefik.http.routers.ctfd.entrypoints=websecure"
         - "traefik.http.routers.ctfd.tls.certresolver=letsencrypt"
         - "traefik.http.services.ctfd.loadbalancer.server.port=8000"
+        # Redirigir HTTP → HTTPS
+        - "traefik.http.routers.ctfd-http.rule=Host(`${CTF_DOMAIN:-ctf.tu-instituto.edu}`)"
+        - "traefik.http.routers.ctfd-http.entrypoints=web"
+        - "traefik.http.routers.ctfd-http.middlewares=redirect-to-https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
 
-  # Proxy inverso: maneja los lab subdominios y el portal SSL
+  # ── Proxy Inverso (Traefik) ────────────────────────────────
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.3
     command:
-      - "--providers.docker.swarmMode=true"
-      - "--providers.docker.exposedbydefault=false"
+      - "--log.level=INFO"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=profesor@tu-instituto.edu"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-profesor@tu-instituto.edu}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
-      - "80:80"
-      - "443:443"
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
     volumes:
-      - ./data/traefik:/letsencrypt
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
       - proxy_net
+      - ctf_internal
       - challenge_net
-      
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  db_data:
+  redis_data:
+  ctfd_logs:
+  ctfd_uploads:
+  traefik_certs:
+
 networks:
   proxy_net:
     external: true

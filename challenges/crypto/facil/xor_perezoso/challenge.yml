@@ -2,13 +2,29 @@ name: "XOR Perezoso"
 author: "Docente"
 category: Crypto
 description: |
-  Un reto educativo para aprender sobre la reversibilidad de XOR.
-  Revisa el código fuente y averigua cómo recuperar la flag.
+  Un programador muy perezoso cifró un mensaje importante usando XOR.
+  Sabemos que usó una **clave de exactamente 8 bytes** —una palabra que un
+  profesor usaría en clase— pero olvidó decirte cuál es.
+
+  Lo que sí sabemos:
+  - El texto en claro empieza con `CTF{`
+  - El cifrado XOR tiene una propiedad muy especial: es **su propio inverso**
+  - El fichero `ciphertext.hex` contiene el resultado en hexadecimal
+
+  ¿Puedes recuperar la flag?
+
+  **Fichero adjunto:** `ciphertext.hex`
 value: 50
 type: standard
 flags:
   - CTF{xor_es_lineal_pero_ensena_algo}
 hints:
-  - { content: "XOR aplicado dos veces con la misma clave devuelve el texto original.", cost: 10 }
+  - content: "Si conoces parte del texto en claro (known-plaintext), puedes recuperar
+      bytes de la clave: clave[i] = cifrado[i] XOR claro_conocido[i]"
+    cost: 10
+  - content: "Los primeros 4 bytes del texto en claro son los caracteres ASCII de 'CTF{'.
+      XOR esos 4 bytes con los primeros 4 del ciphertext para obtener los primeros
+      4 bytes de la clave. La clave tiene 8 bytes y se repite."
+    cost: 20
 state: visible
-version: "0.1"
+version: "0.2"

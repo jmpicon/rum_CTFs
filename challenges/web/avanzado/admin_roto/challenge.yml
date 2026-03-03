@@ -1,10 +1,25 @@
-name: "Admin Roto"
+name: "Admin Roto (IDOR)"
 author: "Docente"
 category: Web
 description: |
-  Aplicación web con control de acceso basado en roles defectuoso.
-  Inicia tu instancia y consigue acceder como admin.
-value: 100
+  La startup **VaultApp** acaba de lanzar su sistema de gestión de documentos.
+  Los usuarios normales solo pueden ver **sus propios** archivos.
+
+  Te han dado una cuenta de prueba:
+  - Usuario: `invitado`
+  - Contraseña: `invitado123`
+
+  Pero el equipo de desarrollo cometió un error clásico de **OWASP Top 10 A01:2021
+  – Broken Access Control**: los IDs de los recursos son predecibles y el servidor
+  no verifica que el recurso pertenezca realmente al usuario autenticado.
+
+  **¿Puedes acceder a los archivos privados del administrador?**
+
+  Inicia tu instancia y explora la aplicación.
+
+  > 💡 Esta vulnerabilidad se llama IDOR — *Insecure Direct Object Reference*.
+  > Es una de las vulnerabilidades web más explotadas en el mundo real.
+value: 300
 type: dynamic_docker
 extra:
   image: "ctf-web-admin"
@@ -12,8 +27,13 @@ extra:
   cpu_limit: "0.25"
 flags:
   - type: static
-    content: CTF{broken_access_control_demo}
+    content: CTF{idor_el_id_no_es_autorizacion}
 hints:
-  - { content: "Revisa bien los parámetros que pasas en la URL.", cost: 10 }
+  - content: "Inicia sesión como 'invitado' y observa la URL cuando accedes a tus documentos.
+      ¿Qué número aparece? ¿Qué pasa si lo cambias?"
+    cost: 20
+  - content: "Los IDs de usuario suelen empezar en 1 o en 1000. El administrador
+      generalmente tiene el ID más bajo. Prueba /api/documentos/1 en lugar de /api/documentos/tuID."
+    cost: 50
 state: visible
-version: "0.1"
+version: "0.2"

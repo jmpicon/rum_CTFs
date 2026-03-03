@@ -1,0 +1,35 @@
+name: "B64 no es Cifrado"
+author: "Docente"
+category: Crypto
+description: |
+  El jefe de seguridad de una empresa afirma que sus mensajes son **imposibles
+  de descifrar** porque aplica un algoritmo de cifrado patentado de tres capas.
+
+  Interceptaste este mensaje:
+
+  ```
+  VUVkVGUzSmhjR0p4ZG1GMFgyRmlYM0ptWDNCMmMyVnVjV0pmYm5wMmRHSjk=
+  ```
+
+  Tras analizar su código fuente filtrado, sabes que aplicó (en orden):
+  1. Primer paso: ROT13
+  2. Segundo paso: Base64
+  3. Tercer paso: Base64 de nuevo
+
+  ¿Tres capas de "cifrado" son realmente seguridad?
+
+  > **Lección:** Codificación ≠ Cifrado.
+  > Base64 y ROT13 son transformaciones **reversibles sin clave**.
+  > Nunca confundas ofuscación con seguridad.
+value: 75
+type: standard
+flags:
+  - CTF{encoding_no_es_cifrado_amigo}
+hints:
+  - content: "Base64 siempre termina en '=' (padding). Identifica las capas de afuera
+      hacia adentro: decodifica Base64, luego Base64 de nuevo, luego deshaz ROT13."
+    cost: 10
+  - content: "En Python: import base64, codecs → base64.b64decode(...) y codecs.decode(text, 'rot_13')"
+    cost: 15
+state: visible
+version: "0.1"
