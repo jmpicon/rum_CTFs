@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Panel Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <h2 class="fw-bold mb-4" style="color:var(--accent)">
+    <i class="bi bi-gear-fill me-2"></i>Panel de Administración
+  </h2>
+
+  <!-- ── Tarjetas de estadísticas ── -->
+  <div class="row g-3 mb-4">
+    {% for icon, label, val, color in [
+      ('bi-people-fill',      'Alumnos',      stats.users,       '#00e5ff'),
+      ('bi-grid-3x3-gap',     'Retos',        stats.challenges,  '#7c3aed'),
+      ('bi-check-circle-fill','Soluciones',   stats.solves,      '#10b981'),
+      ('bi-send-fill',        'Intentos',     stats.submissions, '#f59e0b'),
+    ] %}
+    <div class="col-6 col-md-3">
+      <div class="card stat-card p-3">
+        <i class="bi {{ icon }} mb-1" style="font-size:1.5rem;color:{{ color }}"></i>
+        <div class="stat-number" style="color:{{ color }}">{{ val }}</div>
+        <div style="color:var(--muted);font-size:.78rem;text-transform:uppercase">{{ label }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Tabs ── -->
+  <ul class="nav nav-tabs mb-4" id="adminTabs">
+    <li class="nav-item">
+      <a class="nav-link active" style="color:var(--text)" data-bs-toggle="tab" href="#tab-settings">
+        <i class="bi bi-sliders me-1"></i>Configuración
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" style="color:var(--muted)" data-bs-toggle="tab" href="#tab-challenges">
+        <i class="bi bi-grid me-1"></i>Retos ({{ stats.challenges }})
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" style="color:var(--muted)" data-bs-toggle="tab" href="#tab-users">
+        <i class="bi bi-people me-1"></i>Alumnos ({{ stats.users }})
+      </a>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ╔══════════════════════════════════════════════════════╗ -->
+    <!-- ║  TAB: CONFIGURACIÓN                                  ║ -->
+    <!-- ╚══════════════════════════════════════════════════════╝ -->
+    <div class="tab-pane fade show active" id="tab-settings">
+      <div class="row g-4">
+
+        <!-- Configuración general -->
+        <div class="col-12 col-lg-6">
+          <div class="card p-4 h-100">
+            <h5 class="mb-3" style="color:var(--accent)">
+              <i class="bi bi-sliders me-1"></i>Ajustes del CTF
+            </h5>
+            <form method="POST" action="{{ url_for('admin_settings') }}">
+              <div class="mb-3">
+                <label class="form-label">Nombre del CTF</label>
+                <input type="text" name="ctf_name" class="form-control"
+                       value="{{ settings.ctf_name }}" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Descripción / Bienvenida</label>
+                <textarea name="ctf_description" class="form-control" rows="3"
+                          placeholder="Texto que verán los alumnos en la página de inicio...">{{ settings.ctf_description }}</textarea>
+              </div>
+              <div class="mb-3">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="ctf_started"
+                         name="ctf_started" {{ 'checked' if settings.ctf_started == 'true' }}>
+                  <label class="form-check-label" for="ctf_started">
+                    <i class="bi bi-play-circle me-1" style="color:var(--success)"></i>
+                    CTF iniciado (los alumnos pueden ver y enviar flags)
+                  </label>
+                </div>
+              </div>
+              <div class="mb-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="reg_open"
+                         name="registration_open" {{ 'checked' if settings.registration_open == 'true' }}>
+                  <label class="form-check-label" for="reg_open">
+                    <i class="bi bi-person-plus me-1" style="color:var(--warning)"></i>
+                    Registro de nuevos alumnos abierto
+                  </label>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-ctf w-100">
+                <i class="bi bi-save me-1"></i>Guardar configuración
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="col-12 col-lg-6">
+          <div class="card p-4">
+            <h5 class="mb-3" style="color:var(--accent)">
+              <i class="bi bi-lightning me-1"></i>Acciones rápidas
+            </h5>
+
+            <!-- Importar retos -->
+            <div class="mb-3 p-3 rounded" style="background:var(--surface2);border:1px solid var(--border)">
+              <div class="fw-bold mb-1">
+                <i class="bi bi-folder-plus me-1" style="color:var(--accent)"></i>
+                Importar retos desde YAML
+              </div>
+              <p class="mb-2" style="color:var(--muted);font-size:.82rem">
+                Escanea el directorio <code>/challenges/</code> y carga todos los
+                <code>challenge.yml</code> encontrados.
+              </p>
+              <form method="POST" action="{{ url_for('admin_import') }}">
+                <button type="submit" class="btn btn-ctf w-100">
+                  <i class="bi bi-cloud-download me-1"></i>Importar retos ahora
+                </button>
+              </form>
+            </div>
+
+            <!-- Resetear progreso -->
+            <div class="p-3 rounded" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2)">
+              <div class="fw-bold mb-1" style="color:#fca5a5">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>
+                Resetear todo el progreso
+              </div>
+              <p class="mb-2" style="color:var(--muted);font-size:.82rem">
+                Borra todas las soluciones, intentos y pistas desbloqueadas.
+                Útil para pruebas antes de empezar el CTF.
+              </p>
+              <form method="POST" action="{{ url_for('admin_reset_progress') }}"
+                    onsubmit="return confirm('⚠️ ¿Seguro? Esto borra TODO el progreso de los alumnos.')">
+                <button type="submit" class="btn w-100"
+                        style="background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3)">
+                  <i class="bi bi-trash3 me-1"></i>Resetear progreso
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /tab-settings -->
+
+    <!-- ╔══════════════════════════════════════════════════════╗ -->
+    <!-- ║  TAB: RETOS                                          ║ -->
+    <!-- ╚══════════════════════════════════════════════════════╝ -->
+    <div class="tab-pane fade" id="tab-challenges">
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr style="color:var(--muted);font-size:.78rem;text-transform:uppercase">
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Dificultad</th>
+                <th class="text-center">Pts</th>
+                <th class="text-center">Solves</th>
+                <th>Estado</th>
+                <th>URL Servicio</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ch in challenges %}
+              <tr>
+                <td style="color:var(--muted)">{{ ch.id }}</td>
+                <td>
+                  <strong>{{ ch.name }}</strong>
+                  {% if ch.challenge_type == 'dynamic_docker' %}
+                  <span class="docker-badge ms-1">Docker</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge cat-{{ ch.category|lower }} rounded-pill">{{ ch.category }}</span>
+                </td>
+                <td>
+                  <span class="badge diff-{{ ch.difficulty }} rounded-pill">{{ ch.difficulty }}</span>
+                </td>
+                <td class="text-center" style="color:var(--accent);font-weight:700">{{ ch.value }}</td>
+                <td class="text-center">
+                  <span class="badge" style="background:var(--surface2)">{{ ch.solves|length }}</span>
+                </td>
+                <td>
+                  <button class="btn btn-sm px-2 toggle-btn"
+                          style="background:{{ 'rgba(16,185,129,.2)' if ch.state=='visible' else 'rgba(100,116,139,.2)' }};
+                                 color:{{ '#86efac' if ch.state=='visible' else 'var(--muted)' }};
+                                 border:1px solid {{ 'rgba(16,185,129,.3)' if ch.state=='visible' else 'var(--border)' }};
+                                 font-size:.72rem"
+                          onclick="toggleChallenge({{ ch.id }}, this)"
+                          data-state="{{ ch.state }}">
+                    {% if ch.state == 'visible' %}
+                    <i class="bi bi-eye me-1"></i>Visible
+                    {% else %}
+                    <i class="bi bi-eye-slash me-1"></i>Oculto
+                    {% endif %}
+                  </button>
+                </td>
+                <td>
+                  {% if ch.challenge_type == 'dynamic_docker' %}
+                  <div class="d-flex gap-1">
+                    <input type="text" class="form-control form-control-sm"
+                           style="min-width:160px;font-size:.75rem"
+                           placeholder="http://host:puerto"
+                           id="url-{{ ch.id }}"
+                           value="{{ ch.service_url }}">
+                    <button class="btn btn-sm btn-ctf" onclick="saveUrl({{ ch.id }})">
+                      <i class="bi bi-save"></i>
+                    </button>
+                  </div>
+                  {% else %}
+                  <span style="color:var(--muted);font-size:.75rem">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="POST" action="{{ url_for('admin_delete_challenge', cid=ch.id) }}"
+                        onsubmit="return confirm('¿Eliminar el reto «{{ ch.name }}»?')">
+                    <button type="submit" class="btn btn-sm"
+                            style="background:rgba(239,68,68,.15);color:#fca5a5;border:none;font-size:.72rem">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="9" class="text-center py-4" style="color:var(--muted)">
+                  No hay retos. Usa "Importar retos" en la pestaña Configuración.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-challenges -->
+
+    <!-- ╔══════════════════════════════════════════════════════╗ -->
+    <!-- ║  TAB: ALUMNOS                                        ║ -->
+    <!-- ╚══════════════════════════════════════════════════════╝ -->
+    <div class="tab-pane fade" id="tab-users">
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr style="color:var(--muted);font-size:.78rem;text-transform:uppercase">
+                <th>#</th>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th class="text-center">Puntos</th>
+                <th class="text-center">Retos resueltos</th>
+                <th>Registro</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in user_data %}
+              <tr>
+                <td style="color:var(--muted)">{{ entry.user.id }}</td>
+                <td><strong>{{ entry.user.username }}</strong></td>
+                <td style="color:var(--muted);font-size:.85rem">{{ entry.user.email }}</td>
+                <td class="text-center" style="color:var(--accent);font-weight:700">{{ entry.score }}</td>
+                <td class="text-center">{{ entry.solves }}</td>
+                <td style="color:var(--muted);font-size:.8rem">
+                  {{ entry.user.created_at.strftime('%d/%m/%Y') }}
+                </td>
+                <td>
+                  <form method="POST" action="{{ url_for('admin_delete_user', uid=entry.user.id) }}"
+                        onsubmit="return confirm('¿Eliminar al alumno «{{ entry.user.username }}»?')">
+                    <button type="submit" class="btn btn-sm"
+                            style="background:rgba(239,68,68,.15);color:#fca5a5;border:none;font-size:.72rem">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="7" class="text-center py-4" style="color:var(--muted)">
+                  Ningún alumno registrado todavía.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-users -->
+
+  </div><!-- /tab-content -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Cambiar visibilidad de un reto
+async function toggleChallenge(cid, btn) {
+  const r = await fetch(`/admin/challenge/${cid}/toggle`, { method: 'POST' });
+  const d = await r.json();
+  const visible = d.state === 'visible';
+  btn.dataset.state = d.state;
+  btn.style.background  = visible ? 'rgba(16,185,129,.2)' : 'rgba(100,116,139,.2)';
+  btn.style.color       = visible ? '#86efac' : 'var(--muted)';
+  btn.style.borderColor = visible ? 'rgba(16,185,129,.3)' : 'var(--border)';
+  btn.innerHTML = visible
+    ? '<i class="bi bi-eye me-1"></i>Visible'
+    : '<i class="bi bi-eye-slash me-1"></i>Oculto';
+}
+
+// Guardar URL de servicio Docker
+async function saveUrl(cid) {
+  const url = document.getElementById('url-' + cid).value.trim();
+  const r = await fetch(`/admin/challenge/${cid}/service-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  });
+  if (r.ok) {
+    const btn = document.querySelector(`button[onclick="saveUrl(${cid})"]`);
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    btn.style.background = 'var(--success)';
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-save"></i>';
+      btn.style.background = '';
+    }, 2000);
+  }
+}
+
+// Activar tabs correctamente con Bootstrap
+document.querySelectorAll('#adminTabs a[data-bs-toggle="tab"]').forEach(tab => {
+  tab.addEventListener('shown.bs.tab', e => {
+    document.querySelectorAll('#adminTabs .nav-link').forEach(l => {
+      l.style.color = l === e.target ? 'var(--text)' : 'var(--muted)';
+    });
+  });
+});
+</script>
+{% endblock %}

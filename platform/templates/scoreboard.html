@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Ranking{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width:900px">
+
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+    <div>
+      <h2 class="fw-bold mb-0" style="color:var(--accent)">
+        <i class="bi bi-trophy me-2"></i>Ranking
+      </h2>
+      <p class="mb-0 mt-1" style="color:var(--muted);font-size:.85rem">
+        Se actualiza cada 30 segundos
+        <span id="refresh-dot" style="color:var(--success)"> ●</span>
+      </p>
+    </div>
+    <div style="color:var(--muted);font-size:.8rem">
+      {{ ranking|length }} participante(s)
+    </div>
+  </div>
+
+  <!-- ── Top 3 podio ── -->
+  {% if ranking|length >= 3 %}
+  <div class="row g-3 mb-4 justify-content-center">
+    {% for pos, icon, color, order in [(1,'🥇','#ffd700',0),(2,'🥈','#c0c0c0',1),(3,'🥉','#cd7f32',2)] %}
+    {% if loop.index0 < ranking|length %}
+    {% set entry = ranking[loop.index0] %}
+    <div class="col-4" style="order:{{ order }}">
+      <div class="card text-center p-3 h-100" style="border-color:{{ color }}30">
+        <div style="font-size:{% if pos==1 %}2.2rem{% else %}1.6rem{% endif %}">{{ icon }}</div>
+        <div class="fw-bold mt-1 text-truncate"
+             style="color:{{ color }};font-size:{% if pos==1 %}.95rem{% else %}.85rem{% endif %}">
+          {{ entry.username }}
+          {% if entry.id == current_user_id %}<span style="color:var(--accent)">(tú)</span>{% endif %}
+        </div>
+        <div style="color:var(--accent);font-weight:800;font-size:{% if pos==1 %}1.4rem{% else %}1.2rem{% endif %}">
+          {{ entry.score }} pts
+        </div>
+        <div style="color:var(--muted);font-size:.72rem">{{ entry.solves }} retos</div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Tabla completa ── -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover scoreboard-table mb-0">
+        <thead>
+          <tr style="color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.5px">
+            <th style="width:50px">#</th>
+            <th>Usuario</th>
+            <th class="text-center">Puntos</th>
+            <th class="text-center">Retos</th>
+            <th class="text-end d-none d-md-table-cell">Último solve</th>
+          </tr>
+        </thead>
+        <tbody id="rankingBody">
+          {% for entry in ranking %}
+          <tr class="{{ 'rank-me' if entry.id == current_user_id }}">
+            <td>
+              {% if loop.index == 1 %}
+              <span class="rank-gold fw-bold">🥇</span>
+              {% elif loop.index == 2 %}
+              <span class="rank-silver fw-bold">🥈</span>
+              {% elif loop.index == 3 %}
+              <span class="rank-bronze fw-bold">🥉</span>
+              {% else %}
+              <span style="color:var(--muted)">{{ loop.index }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="fw-bold">{{ entry.username }}</span>
+              {% if entry.id == current_user_id %}
+              <span class="badge ms-1" style="background:var(--accent-dim);color:var(--accent);font-size:.65rem">tú</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <span style="color:var(--accent);font-weight:700">{{ entry.score }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge" style="background:var(--surface2);color:var(--text)">{{ entry.solves }}</span>
+            </td>
+            <td class="text-end d-none d-md-table-cell" style="color:var(--muted);font-size:.82rem">
+              {{ entry.last_solve }}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center py-4" style="color:var(--muted)">
+              Nadie ha resuelto un reto todavía. ¡Sé el primero!
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh del scoreboard cada 30 segundos
+let dot = true;
+setInterval(async () => {
+  try {
+    const r = await fetch('/api/scoreboard');
+    const d = await r.json();
+    // Indicador visual
+    const dotEl = document.getElementById('refresh-dot');
+    dot = !dot;
+    dotEl.style.color = dot ? 'var(--success)' : 'var(--muted)';
+  } catch {}
+}, 30000);
+</script>
+{% endblock %}

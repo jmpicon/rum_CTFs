@@ -1,7 +1,12 @@
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from solution import solve
-import base64, codecs
+import importlib.util, pathlib, base64, codecs
+
+_sol = importlib.util.spec_from_file_location(
+    "b64_solution",
+    pathlib.Path(__file__).parent.parent / "solution.py"
+)
+_mod = importlib.util.module_from_spec(_sol)
+_sol.loader.exec_module(_mod)
+solve = _mod.solve
 
 ENCODED = "VUVkVGUzSmhjR0p4ZG1GMFgyRmlYM0ptWDNCMmMyVnVjV0pmYm5wMmRHSjk="
 FLAG    = "CTF{encoding_no_es_cifrado_amigo}"

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:85vh">
+  <div class="text-center px-4" style="max-width:700px">
+
+    <!-- Icono animado -->
+    <div style="font-size:5rem;animation:pulse 2s infinite">🏴</div>
+
+    <h1 class="display-4 fw-800 mt-3 mb-2" style="color:var(--accent);font-weight:800;letter-spacing:-1px">
+      {{ ctf_name }}
+    </h1>
+
+    <p class="lead mb-4" style="color:var(--muted)">
+      {% if ctf_description %}
+        {{ ctf_description }}
+      {% else %}
+        Plataforma de retos de ciberseguridad para el aula. Crypto · Web · Forense · Reversing
+      {% endif %}
+    </p>
+
+    {% if ctf_started %}
+      <!-- CTF en marcha -->
+      <div class="d-flex gap-3 justify-content-center flex-wrap mt-4">
+        {% if session.user_id %}
+        <a href="{{ url_for('challenges') }}" class="btn btn-ctf btn-lg px-5">
+          <i class="bi bi-grid-3x3-gap me-2"></i>Ver Retos
+        </a>
+        <a href="{{ url_for('scoreboard') }}" class="btn btn-lg px-4"
+           style="background:var(--surface2);color:var(--text);border:1px solid var(--border)">
+          <i class="bi bi-trophy me-2"></i>Ranking
+        </a>
+        {% else %}
+        <a href="{{ url_for('register') }}" class="btn btn-ctf btn-lg px-5">
+          <i class="bi bi-person-plus me-2"></i>Unirme al CTF
+        </a>
+        <a href="{{ url_for('login') }}" class="btn btn-lg px-4"
+           style="background:var(--surface2);color:var(--text);border:1px solid var(--border)">
+          Ya tengo cuenta
+        </a>
+        {% endif %}
+      </div>
+
+    {% else %}
+      <!-- CTF no iniciado: pantalla de espera -->
+      <div class="card mx-auto mt-4" style="max-width:460px;border-color:rgba(0,229,255,.3)">
+        <div class="card-body py-4">
+          <div style="font-size:2.5rem">⏳</div>
+          <h4 class="mt-2 mb-1" style="color:var(--accent)">El CTF comenzará pronto</h4>
+          <p class="mb-3" style="color:var(--muted);font-size:.9rem">
+            El profesor arrancará la competición en breve.<br>
+            Mientras tanto, crea tu cuenta.
+          </p>
+          {% if not session.user_id %}
+          <div class="d-flex gap-2 justify-content-center">
+            <a href="{{ url_for('register') }}" class="btn btn-ctf px-4">
+              <i class="bi bi-person-plus me-1"></i>Registro
+            </a>
+            <a href="{{ url_for('login') }}" class="btn px-4"
+               style="background:var(--surface2);color:var(--text);border:1px solid var(--border)">
+              Ya tengo cuenta
+            </a>
+          </div>
+          {% else %}
+          <p style="color:var(--success)">
+            <i class="bi bi-check-circle me-1"></i>Sesión iniciada como <strong>{{ session.username }}</strong>. ¡Listo para competir!
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Info de categorías -->
+      <div class="row g-3 mt-4 justify-content-center">
+        {% for icon, cat, color, desc in [
+          ('🔐', 'Crypto',    '#7c3aed', 'Cifrado, claves, matemáticas'),
+          ('🌐', 'Web',       '#0891b2', 'SQL, XSS, IDOR, JWT...'),
+          ('🔬', 'Forense',   '#b45309', 'PCAP, metadatos, imágenes'),
+          ('⚙️', 'Reversing', '#be185d', 'Bytecode, binarios, ingeniería inversa'),
+        ] %}
+        <div class="col-6 col-md-3">
+          <div class="card py-3 px-2 text-center h-100">
+            <div style="font-size:1.8rem">{{ icon }}</div>
+            <div style="color:{{ color }};font-weight:700;font-size:.9rem">{{ cat }}</div>
+            <div style="color:var(--muted);font-size:.75rem">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<style>
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+</style>
+{% endblock %}

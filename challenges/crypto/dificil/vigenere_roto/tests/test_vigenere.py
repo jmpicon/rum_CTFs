@@ -1,27 +1,33 @@
-import os, re, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from solution import vigenere_decrypt, solve
+import importlib.util, pathlib, re
 
-CT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ciphertext.txt")
+_sol = importlib.util.spec_from_file_location(
+    "vigenere_solution",
+    pathlib.Path(__file__).parent.parent / "solution.py"
+)
+_mod = importlib.util.module_from_spec(_sol)
+_sol.loader.exec_module(_mod)
+vigenere_decrypt = _mod.vigenere_decrypt
+solve = _mod.solve
+
+CT_PATH = pathlib.Path(__file__).parent.parent / "ciphertext.txt"
 FLAG    = "CTF{vigenere_cae_ante_la_estadistica}"
 KEY     = "SEGURO"
 
 
 def test_decrypt_with_known_key():
-    ct = open(CT_PATH).read()
+    ct = CT_PATH.read_text()
     plain = vigenere_decrypt(ct, KEY)
     assert FLAG in plain
 
 
 def test_solve_returns_flag():
-    ct = open(CT_PATH).read()
+    ct = CT_PATH.read_text()
     flag = solve(ct)
     assert flag == FLAG
 
 
 def test_vigenere_roundtrip():
     """Cifrar y descifrar devuelve el original."""
-    from solution import vigenere_decrypt
     original = "HolaMundo"
 
     def vigenere_encrypt(text, key):
@@ -45,7 +51,7 @@ def test_vigenere_roundtrip():
 
 
 def test_flag_in_ciphertext_file():
-    ct = open(CT_PATH).read()
+    ct = CT_PATH.read_text()
     plain = vigenere_decrypt(ct, KEY)
     matches = re.findall(r"CTF\{[^}]+\}", plain)
     assert len(matches) == 1

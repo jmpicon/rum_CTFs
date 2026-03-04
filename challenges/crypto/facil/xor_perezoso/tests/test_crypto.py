@@ -1,10 +1,19 @@
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from solution import solve, xor_bytes, recover_key_kpa
+import importlib.util, pathlib
 
 CT_HEX = "203827080b041726061f3e1f1a0500180f33111601043a1c0d1f041d1234041504031c"
 FLAG    = "CTF{xor_es_lineal_pero_ensena_algo}"
 KEY     = b"classkey"
+
+# Cargar solution.py por ruta absoluta (evita colisiones entre retos)
+_sol = importlib.util.spec_from_file_location(
+    "xor_solution",
+    pathlib.Path(__file__).parent.parent / "solution.py"
+)
+_mod = importlib.util.module_from_spec(_sol)
+_sol.loader.exec_module(_mod)
+solve = _mod.solve
+xor_bytes = _mod.xor_bytes
+recover_key_kpa = _mod.recover_key_kpa
 
 
 def test_xor_roundtrip():

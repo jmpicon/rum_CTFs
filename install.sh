@@ -2,123 +2,133 @@
 set -euo pipefail
 
 # ============================================================
-# Instalador automático – Plataforma CTF Docente
-# CTFd 3.7+ · Docker Swarm · Plugin Whale · Traefik SSL
+# Instalador — CTF Docente (Plataforma propia)
+# Flask + SQLite + Bootstrap 5 · Sin CTFd · Sin Swarm
 #
-# USO:  sudo ./install.sh
+# USO:
+#   ./install.sh          → instala todo y arranca
+#   ./install.sh --dev    → solo para desarrollo local (sin sudo)
 # ============================================================
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
+
 log()  { echo -e "${GREEN}[OK]${NC} $*"; }
+info() { echo -e "${BLUE}[>>]${NC} $*"; }
 warn() { echo -e "${YELLOW}[!!]${NC} $*"; }
 die()  { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE="${1:-}"
 
-# ── 1. Privilegios ─────────────────────────────────────────
-[ "$EUID" -eq 0 ] || die "Ejecuta como root: sudo ./install.sh"
+echo -e "${BOLD}"
+echo "  ╔══════════════════════════════════════════════════╗"
+echo "  ║         CTF DOCENTE — Instalador v2.0            ║"
+echo "  ║   Plataforma educativa de ciberseguridad         ║"
+echo "  ╚══════════════════════════════════════════════════╝"
+echo -e "${NC}"
 
-# ── 2. Variables de entorno personalizables ────────────────
-CTF_DOMAIN="${CTF_DOMAIN:-ctf.edu.gva.es}"
-ACME_EMAIL="${ACME_EMAIL:-jm.picongimenez@edu.gva.es}"
+# ── Variables personalizables ──────────────────────────────
+CTF_PORT="${CTF_PORT:-7000}"
+CTF_NAME="${CTF_NAME:-CTF Docente}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-ctf_admin_2024}"
+SECRET_KEY="${SECRET_KEY:-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 48 2>/dev/null || echo 'clave_secreta_generada_por_defecto_2024')}"
 
-warn "Dominio CTF: $CTF_DOMAIN"
-warn "Email ACME:  $ACME_EMAIL"
+info "Configuración:"
+echo "    CTF_NAME       = $CTF_NAME"
+echo "    CTF_PORT       = $CTF_PORT"
+echo "    ADMIN_PASSWORD = $ADMIN_PASSWORD"
 echo ""
 
-# ── 3. Docker ──────────────────────────────────────────────
-log "Verificando Docker..."
+# ── 1. Docker ──────────────────────────────────────────────
+info "Verificando Docker..."
 if ! command -v docker &>/dev/null; then
+    if [ "$MODE" = "--dev" ]; then
+        die "Docker no instalado. Instálalo con: https://docs.docker.com/get-docker/"
+    fi
+    [ "$EUID" -eq 0 ] || die "Se necesita root para instalar Docker. Usa: sudo ./install.sh"
     warn "Docker no encontrado. Instalando..."
-    apt-get update -y
-    apt-get install -y apt-transport-https ca-certificates curl software-properties-common git jq
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-        | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
-https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-        | tee /etc/apt/sources.list.d/docker.list >/dev/null
-    apt-get update -y
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+    apt-get update -y && apt-get install -y curl
+    curl -fsSL https://get.docker.com | sh
     log "Docker instalado."
 else
-    log "Docker ya disponible: $(docker --version)"
+    log "Docker: $(docker --version)"
 fi
 
-# ── 4. Daemon: deshabilitar live-restore (incompatible con Swarm) ──
-DAEMON_JSON="/etc/docker/daemon.json"
-if [ -f "$DAEMON_JSON" ] && grep -q '"live-restore": true' "$DAEMON_JSON"; then
-    warn "Deshabilitando live-restore (incompatible con Swarm)..."
-    sed -i 's/"live-restore": true/"live-restore": false/' "$DAEMON_JSON"
-    systemctl restart docker
-    sleep 5
+if ! docker compose version &>/dev/null 2>&1; then
+    die "Docker Compose v2 no disponible. Actualiza Docker."
 fi
+log "Docker Compose: $(docker compose version --short)"
 
-# ── 5. Docker Swarm ────────────────────────────────────────
-log "Verificando Docker Swarm..."
-if docker info 2>/dev/null | grep -q 'Swarm: active'; then
-    log "Swarm ya activo."
-else
-    IP=$(hostname -I | awk '{print $1}')
-    docker swarm init --advertise-addr "$IP"
-    log "Swarm inicializado en $IP."
-fi
+# ── 2. Construir imágenes ──────────────────────────────────
+info "Construyendo imágenes Docker..."
+cd "$BASE_DIR/platform"
 
-# ── 6. Redes overlay ──────────────────────────────────────
-log "Creando redes overlay..."
-docker network create --driver overlay proxy_net    2>/dev/null || warn "proxy_net ya existe."
-docker network create --driver overlay ctf_internal 2>/dev/null || warn "ctf_internal ya existe."
-docker network create --driver overlay --attachable challenge_net 2>/dev/null || warn "challenge_net ya existe."
+CTF_NAME="$CTF_NAME" \
+CTF_PORT="$CTF_PORT" \
+ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+SECRET_KEY="$SECRET_KEY" \
+  docker compose build --parallel
 
-# ── 7. Construir imagen CTFd personalizada ─────────────────
-log "Construyendo imagen ctfd-custom:latest..."
-docker build -t ctfd-custom:latest "$BASE_DIR/platform/"
+log "Imágenes construidas."
 
-# ── 8. Construir imágenes de retos web ────────────────────
-log "Construyendo imágenes de retos..."
-build_image() {
-    local service_dir="$1"
-    local tag="$2"
-    if [ -f "$service_dir/Dockerfile" ]; then
-        log "  → Construyendo $tag"
-        docker build -t "$tag" "$service_dir"
+# ── 3. Generar artefactos de retos (si no existen) ────────
+info "Generando artefactos de retos (EXIF, PCAP, PYC)..."
+
+gen_if_missing() {
+    local dir="$1"
+    local output="$2"
+    if [ -f "$BASE_DIR/challenges/$dir/gen.py" ] && \
+       [ ! -f "$BASE_DIR/challenges/$dir/$output" ]; then
+        warn "  Generando $dir/$output..."
+        cd "$BASE_DIR/challenges/$dir"
+        python3 gen.py 2>/dev/null && log "  ✓ $output generado" || \
+            warn "  ⚠ No se pudo generar $output (instala dependencias con pip install Pillow piexif scapy)"
+        cd "$BASE_DIR"
     fi
 }
 
-build_image "$BASE_DIR/challenges/web/facil/robots_secretos/service"    "ctf-web-robots"
-build_image "$BASE_DIR/challenges/web/medio/cookie_falsa/service"       "ctf-web-cookie"
-build_image "$BASE_DIR/challenges/web/medio/sqli_login/service"         "ctf-web-sqli"
-build_image "$BASE_DIR/challenges/web/avanzado/admin_roto/service"      "ctf-web-admin"
+gen_if_missing "forense/facil/metadatos_reveladores" "foto_gato.jpg"
+gen_if_missing "forense/medio/trafico_sospechoso"    "captura.pcap"
+gen_if_missing "reversing/facil/pyc_misterioso"      "check.pyc"
 
-# ── 9. Desplegar stack ────────────────────────────────────
-log "Desplegando stack CTFd..."
+# ── 4. Arrancar plataforma ─────────────────────────────────
+info "Arrancando plataforma CTF..."
 cd "$BASE_DIR/platform"
-CTF_DOMAIN="$CTF_DOMAIN" ACME_EMAIL="$ACME_EMAIL" \
-    docker stack deploy -c docker-compose.yml ctf
 
-# ── 10. Esperar servicios ─────────────────────────────────
-log "Esperando que los servicios arranquen (puede tardar ~60 segundos)..."
-for i in $(seq 1 30); do
-    running=$(docker service ls --filter "name=ctf_ctfd" --format "{{.Replicas}}" 2>/dev/null || echo "0/1")
-    [ "$running" = "1/1" ] && break
+CTF_NAME="$CTF_NAME" \
+CTF_PORT="$CTF_PORT" \
+ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+SECRET_KEY="$SECRET_KEY" \
+  docker compose up -d
+
+# ── 5. Esperar a que la plataforma esté lista ──────────────
+info "Esperando que la plataforma arranque..."
+for i in $(seq 1 20); do
+    if curl -sf "http://localhost:$CTF_PORT/" &>/dev/null; then
+        break
+    fi
     sleep 2
 done
 
+# ── 6. Summary ─────────────────────────────────────────────
 echo ""
-echo "══════════════════════════════════════════════════════"
-echo -e "  ${GREEN}¡PLATAFORMA CTF DESPLEGADA CON ÉXITO!${NC}"
-echo "══════════════════════════════════════════════════════"
+echo -e "${BOLD}${GREEN}"
+echo "  ╔══════════════════════════════════════════════════╗"
+echo "  ║       ¡PLATAFORMA CTF LISTA PARA USAR!           ║"
+echo "  ╚══════════════════════════════════════════════════╝"
+echo -e "${NC}"
+IP_LOCAL="$(hostname -I | awk '{print $1}')"
+echo -e "  🌐 Portal alumnos: ${BLUE}http://$IP_LOCAL:$CTF_PORT${NC}"
+echo -e "  👤 Admin:          usuario=${BOLD}admin${NC}  contraseña=${BOLD}$ADMIN_PASSWORD${NC}"
+echo -e "  🔧 Panel admin:    ${BLUE}http://$IP_LOCAL:$CTF_PORT/admin${NC}"
 echo ""
-echo "  Portal (Traefik):     https://$CTF_DOMAIN"
-echo "  Fallback directo:     http://$(hostname -I | awk '{print $1}'):8000"
-echo "  Nota DNS local:       añade '$CTF_DOMAIN' en /etc/hosts si no tienes DNS publico"
+echo "  ✅ Los retos se cargan automáticamente — no hay que hacer nada más."
+echo "     Comparte la URL de portal con los alumnos y ¡a jugar!"
 echo ""
-echo "  CONFIGURACIÓN INICIAL del Plugin Whale:"
-echo "    Docker API URL : unix:///var/run/docker.sock"
-echo "    Swarm Network  : challenge_net"
-echo "    Max containers : 50  (ajusta según RAM)"
-echo ""
-echo "  Para ver logs CTFd:"
-echo "    docker service logs ctf_ctfd -f"
-echo ""
-warn "Cambia las contraseñas de BD en docker-compose.yml antes de producción."
+echo "  🛠️  Comandos útiles (ejecutar desde la carpeta 'platform/'):"
+echo "     docker compose logs -f ctf        # logs plataforma"
+echo "     docker compose logs -f web-sqli   # logs reto SQLi"
+echo "     docker compose down               # apagar todo"
+echo "     docker compose restart ctf        # reiniciar plataforma"
 echo ""

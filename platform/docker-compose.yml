@@ -1,143 +1,127 @@
-version: '3.7'
-
 # ============================================================
-# CTFd Stack – Docker Swarm
-# Despliegue: docker stack deploy -c docker-compose.yml ctf
+# CTF Docente – Stack completo (sin dependencias externas)
 #
-# ANTES de desplegar, construye la imagen de CTFd con:
-#   docker build -t ctfd-custom:latest ./platform/
-# Y la imagen de los retos web:
-#   bash install.sh
+# Cómo usar:
+#   1. Construir:  docker compose build
+#   2. Levantar:   docker compose up -d
+#   3. Ver logs:   docker compose logs -f ctf
+#   4. Abrir:      http://localhost:7000
+#      Admin:      usuario=admin  contraseña=ctf_admin_2024
+#
+# Para producción con dominio propio:
+#   - Configura CTF_DOMAIN y ACME_EMAIL
+#   - Descomenta el servicio 'traefik' al final
 # ============================================================
 
 services:
 
-  # ── Base de Datos ──────────────────────────────────────────
-  db:
-    image: mariadb:10.11
-    restart: always
+  # ── Plataforma CTF (Flask + SQLite) ───────────────────────
+  ctf:
+    build: .
+    restart: unless-stopped
     environment:
-      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-cambiame_root_2024}
-      - MARIADB_USER=ctfd
-      - MARIADB_PASSWORD=${DB_PASSWORD:-cambiame_ctfd_2024}
-      - MARIADB_DATABASE=ctfd
-    networks:
-      - ctf_internal
+      - CTF_NAME=${CTF_NAME:-CTF Docente}
+      - SECRET_KEY=${SECRET_KEY:-CAMBIA_ESTO_EN_PRODUCCION_2024}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-ctf_admin_2024}
+      - DATABASE_URL=sqlite:////data/ctf.db
     volumes:
-      - db_data:/var/lib/mysql
+      - ctf_data:/data
+      - ../challenges:/challenges:ro
+    ports:
+      - "${CTF_PORT:-7000}:5000"
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost",
-             "-u", "ctfd", "--password=${DB_PASSWORD:-cambiame_ctfd_2024}"]
-      interval: 10s
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 3
+      start_period: 10s
 
-  # ── Caché (Redis) ──────────────────────────────────────────
-  cache:
-    image: redis:7-alpine
-    restart: always
-    networks:
-      - ctf_internal
-    volumes:
-      - redis_data:/data
+  # ── Retos Web: robots_secretos (fácil) ────────────────────
+  web-robots:
+    build: ../challenges/web/facil/robots_secretos/service
+    restart: unless-stopped
+    environment:
+      - FLAG=${FLAG_ROBOTS:-CTF{robots_txt_no_es_seguridad}}
+    ports:
+      - "8081:8080"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
       timeout: 3s
       retries: 3
 
-  # ── Portal CTFd + Plugin Whale ─────────────────────────────
-  # La imagen se construye ANTES del deploy: docker build -t ctfd-custom:latest ./platform/
-  ctfd:
-    image: ctfd-custom:latest
-    user: root   # necesario para acceder al socket Docker (Whale plugin)
-    restart: always
+  # ── Retos Web: cookie_falsa (medio) ───────────────────────
+  web-cookie:
+    build: ../challenges/web/medio/cookie_falsa/service
+    restart: unless-stopped
     environment:
-      - UPLOAD_FOLDER=/var/uploads
-      - DATABASE_URL=mysql+pymysql://ctfd:${DB_PASSWORD:-cambiame_ctfd_2024}@db/ctfd
-      - REDIS_URL=redis://cache:6379
-      - WORKERS=4
-      - LOG_FOLDER=/var/log/CTFd
-      - ACCESS_LOG=-
-      - ERROR_LOG=-
-      - REVERSE_PROXY=true
-      - SECRET_KEY=${CTF_SECRET_KEY:-cambia_esta_clave_secreta_ahora}
-    volumes:
-      - ctfd_logs:/var/log/CTFd
-      - ctfd_uploads:/var/uploads
-      # Whale necesita hablar con el daemon Docker (Swarm)
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - FLAG=${FLAG_COOKIE:-CTF{nunca_confies_en_el_cliente}}
     ports:
-      - target: 8000
-        published: 8000
-        protocol: tcp
-        mode: host
-    networks:
-      - ctf_internal
-      - proxy_net
-      - challenge_net
-    depends_on:
-      - db
-      - cache
-    deploy:
-      replicas: 1
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.ctfd.rule=Host(`${CTF_DOMAIN:-ctf.tu-instituto.edu}`)"
-        - "traefik.http.routers.ctfd.entrypoints=websecure"
-        - "traefik.http.routers.ctfd.tls.certresolver=letsencrypt"
-        - "traefik.http.services.ctfd.loadbalancer.server.port=8000"
-        # Redirigir HTTP → HTTPS
-        - "traefik.http.routers.ctfd-http.rule=Host(`${CTF_DOMAIN:-ctf.tu-instituto.edu}`)"
-        - "traefik.http.routers.ctfd-http.entrypoints=web"
-        - "traefik.http.routers.ctfd-http.middlewares=redirect-to-https"
-        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "8082:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
-  # ── Proxy Inverso (Traefik) ────────────────────────────────
-  traefik:
-    image: traefik:v3.3
-    command:
-      - "--log.level=INFO"
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-profesor@tu-instituto.edu}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+  # ── Retos Web: sqli_login (medio) ─────────────────────────
+  web-sqli:
+    build: ../challenges/web/medio/sqli_login/service
+    restart: unless-stopped
+    environment:
+      - FLAG=${FLAG_SQLI:-CTF{sqli_las_comillas_mandan}}
     ports:
-      - target: 80
-        published: 80
-        protocol: tcp
-        mode: host
-      - target: 443
-        published: 443
-        protocol: tcp
-        mode: host
-    volumes:
-      - traefik_certs:/letsencrypt
-      - ./traefik/dynamic:/etc/traefik/dynamic:ro
-    networks:
-      - proxy_net
-      - ctf_internal
-      - challenge_net
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      - "8083:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # ── Retos Web: admin_roto / IDOR (avanzado) ───────────────
+  web-admin:
+    build: ../challenges/web/avanzado/admin_roto/service
+    restart: unless-stopped
+    environment:
+      - FLAG=${FLAG_ADMIN:-CTF{idor_el_id_no_es_autorizacion}}
+    ports:
+      - "8084:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
 volumes:
-  db_data:
-  redis_data:
-  ctfd_logs:
-  ctfd_uploads:
-  traefik_certs:
+  ctf_data:
 
-networks:
-  proxy_net:
-    external: true
-  ctf_internal:
-    external: true
-  challenge_net:
-    external: true
+# ── Opcional: Traefik para SSL con dominio propio ──────────
+# Descomenta y configura si tienes un dominio público.
+#
+# Antes:
+#   export CTF_DOMAIN=ctf.mi-instituto.edu
+#   export ACME_EMAIL=profe@mi-instituto.edu
+#
+#  traefik:
+#    image: traefik:v3.0
+#    command:
+#      - "--providers.docker=true"
+#      - "--providers.docker.exposedbydefault=false"
+#      - "--entrypoints.web.address=:80"
+#      - "--entrypoints.websecure.address=:443"
+#      - "--certificatesresolvers.le.acme.tlschallenge=true"
+#      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
+#      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+#    ports: ["80:80", "443:443"]
+#    volumes:
+#      - traefik_certs:/letsencrypt
+#      - /var/run/docker.sock:/var/run/docker.sock:ro
+#    labels:
+#      - "traefik.enable=true"
+#
+# Y añade a 'ctf':
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.ctf.rule=Host(`${CTF_DOMAIN}`)"
+#      - "traefik.http.routers.ctf.entrypoints=websecure"
+#      - "traefik.http.routers.ctf.tls.certresolver=le"

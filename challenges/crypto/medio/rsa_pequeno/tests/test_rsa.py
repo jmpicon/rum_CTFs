@@ -1,6 +1,13 @@
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from solution import factorize, solve
+import importlib.util, pathlib
+
+_sol = importlib.util.spec_from_file_location(
+    "rsa_solution",
+    pathlib.Path(__file__).parent.parent / "solution.py"
+)
+_mod = importlib.util.module_from_spec(_sol)
+_sol.loader.exec_module(_mod)
+factorize = _mod.factorize
+solve = _mod.solve
 
 N = 81072007
 E = 65537
